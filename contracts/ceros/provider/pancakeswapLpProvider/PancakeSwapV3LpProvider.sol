@@ -340,12 +340,13 @@ IERC721Receiver
 
   /**
     * @dev User's position is being liquidated
-    *      when `isLeftOver` is false, a liquidator buys the LP token from the user and paid the debt
+    *      liquidator buys the LP token from the user and paid the debt
     *      liquidity will be removed from user's LP and transform to token0 and token1, then transfer them to the recipient(liquidator)
     *      if user has multiple LPs, the function will liquidate from the lowest value LP to the highest value LP until `amount` is covered
     *
-    *      when `isLeftOver` is true, the CDP position is fully liquidated
-    *      the remaining LP token, including token0 and token1 will be transferred to user
+    *      After each time of certain amount of collateral has been bought, we will check with the clipper contract
+    *      to see if the liquidation is done, i.e user'debt or/and leftover collateral is 0
+    *      the remaining LP token will be burn, and token0 and token1 will be transferred to user
     *
     * @param owner the address of the user to liquidate
     * @param recipient the address of the liquidator or user
@@ -365,28 +366,7 @@ IERC721Receiver
     require(amount > 0, "PcsV3LpProvider: invalid-amount");
     // get user token0 and token1 leftover from previous liquidation(if any)
     UserLiquidation storage record = userLiquidations[owner];
-    // liquidation ended, send leftover tokens and LP to the owner
-    if (isLeftOver) {
-      // sweep the leftover lpUsd at cdp after liquidation
-      PcsV3LpLiquidationHelper.sweepLeftoverLpUsd(
-        owner,
-        lpUsd,
-        cdp
-      );
-      if (userLps[owner].length > 0) {
-        // re-init user's position at CDP
-        _syncUserCdpPosition(owner, true);
-      }
-      // returns all leftover token0 and token1 to user
-      if (record.token1Left > 0) {
-        IERC20(token1).safeTransfer(owner, record.token1Left);
-      }
-      if (record.token0Left > 0) {
-        IERC20(token0).safeTransfer(owner, record.token0Left);
-      }
-      // delete user's liquidation record
-      delete userLiquidations[owner];
-    } else {
+    if (!isLeftOver) {
       // get token0 and token1's price
       // and calculate their values
       uint256 token0Price = IResilientOracle(resilientOracle).peek(token0);
@@ -432,11 +412,33 @@ IERC721Receiver
       record.token0Left = newToken0Left;
       record.token1Left = newToken1Left;
     }
+  
+    // Do check whether liquidation is ended each time the bot bought some collateral
+    PcsV3LpLiquidationHelper.PostLiquidationParams memory postLiquidationParams = PcsV3LpLiquidationHelper.PostLiquidationParams({
+      cdp: cdp,
+      collateral: lpUsd,
+      user: owner,
+      token0: token0,
+      token1: token1,
+      token0Left: record.token0Left,
+      token1Left: record.token1Left
+    });
+    bool liquidationEnded = PcsV3LpLiquidationHelper.postLiquidation(postLiquidationParams);
+    // liquidation ended, send leftover tokens and LP to the owner
+    if (liquidationEnded) {
+      if (userLps[owner].length > 0) {
+          // re-init user's position at CDP
+          _syncUserCdpPosition(owner, true);
+      }
+      // delete user's liquidation record
+      delete userLiquidations[owner];
+    }
+    
     emit Liquidated(
       owner,
       recipient,
       amount,
-      isLeftOver,
+      liquidationEnded,
       record.token0Left,
       record.token1Left
     );

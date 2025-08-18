@@ -27,7 +27,7 @@ interface IPancakeSwapV3LpProvider {
     address user,
     address receipient,
     uint256 amount,
-    bool isLeftover,
+    bool isLiquidationEnded,
     uint256 token0Left,
     uint256 token1Left
   );
