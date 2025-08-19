@@ -630,7 +630,7 @@ contract Interaction is OwnableUpgradeable, IDao, IAuctionProxy {
             vat,
             helioProvider,
             collateral,
-            data // format V2: amount0, amount1 ; V3: amount0, amount1, tokenId
+            data // amount0Min, amount1Min, tokenId
         );
 
         address urn = ClipperLike(collateral.clip).sales(auctionId).usr; // Liquidated address

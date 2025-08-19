@@ -364,6 +364,7 @@ IERC721Receiver
     require(owner != address(0), "PcsV3LpProvider: invalid-owner");
     require(recipient != address(0), "PcsV3LpProvider: invalid-recipient");
     require(amount > 0, "PcsV3LpProvider: invalid-amount");
+    require(userLiquidations[owner].ongoing, "PcsV3LpProvider: no-ongoing-liquidation");
     // get user token0 and token1 leftover from previous liquidation(if any)
     UserLiquidation storage record = userLiquidations[owner];
     if (!isLeftOver) {
