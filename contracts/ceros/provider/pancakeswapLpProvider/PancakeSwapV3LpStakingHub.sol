@@ -173,7 +173,7 @@ IERC721Receiver
     * @return amount1 collected amount of token1
     * @return rewards collected amount of rewards
     */
-  function burnAndCollect(uint256 tokenId, uint256 amount0Min, uint256 amount1Min)
+  function burnAndCollect(uint256 tokenId, uint256 amount0Min, uint256 amount1Min, uint256 deadline)
   override
   external
   checkTokenIdWithProvider(tokenId)
@@ -185,7 +185,7 @@ IERC721Receiver
     address provider = msg.sender;
     
     // decrease liquidity
-    _decreaseLiquidity(tokenId, amount0Min,amount1Min);
+    _decreaseLiquidity(tokenId, amount0Min, amount1Min, deadline);
     // burn LP and collect token0, token1 & reward token
     (amount0, amount1, rewards) = _burnAndCollectTokens(
       tokenId,
@@ -236,7 +236,12 @@ IERC721Receiver
     * @param amount0Min minimum amount of token0 to collect
     * @param amount1Min minimum amount of token1 to collect
     */
-  function _decreaseLiquidity(uint256 tokenId, uint256 amount0Min, uint256 amount1Min) internal {
+  function _decreaseLiquidity(
+    uint256 tokenId,
+    uint256 amount0Min,
+    uint256 amount1Min,
+    uint256 deadline
+  ) internal {
     // fully remove liquidity from the tokenId
     // @note at this moment rewards will be cached to the token's position too
     IMasterChefV3(masterChefV3).decreaseLiquidity(
@@ -245,7 +250,7 @@ IERC721Receiver
         liquidity: getLiquidity(tokenId),
         amount0Min: amount0Min,
         amount1Min: amount1Min,
-        deadline: block.timestamp + 20 minutes // 20 minutes deadline
+        deadline: deadline
       })
     );
   }
