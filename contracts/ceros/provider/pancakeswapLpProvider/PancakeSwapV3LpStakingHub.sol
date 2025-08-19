@@ -358,7 +358,7 @@ IERC721Receiver
     address from,
     uint256 /*tokenId*/,
     bytes calldata /*data*/
-  ) override external view returns (bytes4) {
+  ) override whenNotPaused external view returns (bytes4) {
     // LP token must coming from active lpProviders or MasterChefV3
     require(
       lpProviders[from] || from == masterChefV3,
