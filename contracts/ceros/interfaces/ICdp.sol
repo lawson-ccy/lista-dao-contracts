@@ -37,7 +37,7 @@ interface SpotLike {
 
 interface ClipperLike {
   function sales(uint256 id) external view returns (Sale memory);
-  function active() external view returns (uint256[] memory);
+  function list() external view returns (uint256[] memory);
 }
 
 // denominator when calculating interests

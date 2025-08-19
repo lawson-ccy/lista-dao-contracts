@@ -91,7 +91,13 @@ library PcsV3LpLiquidationHelper {
     newToken1Left = amount1 > token1Sent ? amount1 - token1Sent : 0;
   }
 
-
+  /**
+    * @dev Post liquidation logic
+    *      - Check if liquidation ended by checking user's remaining debt and collateral
+    *      - Sweep leftover LpUsd after liquidation
+    *      - Send leftover token0 and token1 to user
+    * @param postLiquidationParams The parameters for post-liquidation processing
+    */
   function postLiquidation(PostLiquidationParams memory postLiquidationParams) public returns (bool liquidationEnded) {
     address cdp = postLiquidationParams.cdp;
     address collateral = postLiquidationParams.collateral;
@@ -104,7 +110,7 @@ library PcsV3LpLiquidationHelper {
     // no collateral or debt is left, liquidation ended
     if (remainingDebt == 0 || remainingCollateral == 0) {
       // sweep the leftover lpUsd at cdp after liquidation
-      sweepLeftoverLpUsd(user, user, cdp);
+      sweepLeftoverLpUsd(user, collateral, cdp);
       // send leftover token0 and token1 to user
       uint256 token0Left = postLiquidationParams.token0Left;
       uint256 token1Left = postLiquidationParams.token1Left;
@@ -130,7 +136,7 @@ library PcsV3LpLiquidationHelper {
     // get clipper of LpUsd
     (,,,address clipper) = ICdp(cdp).collaterals(token);
     // get all acitve auction ids from clipper
-    uint256[] memory auctionIds = ClipperLike(clipper).active();
+    uint256[] memory auctionIds = ClipperLike(clipper).list();
     // search user's auction Id by matching
     for (uint256 i = 0; i < auctionIds.length; ++i) {
       Sale memory sale = ClipperLike(clipper).sales(auctionIds[i]);
