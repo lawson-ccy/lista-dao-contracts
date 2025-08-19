@@ -365,18 +365,21 @@ IERC721Receiver
     require(recipient != address(0), "PcsV3LpProvider: invalid-recipient");
     require(amount > 0, "PcsV3LpProvider: invalid-amount");
     require(userLiquidations[owner].ongoing, "PcsV3LpProvider: no-ongoing-liquidation");
+    // burn lpUsd
+    ILpUsd(lpUsd).burn(address(this), amount);
     // get user token0 and token1 leftover from previous liquidation(if any)
     UserLiquidation storage record = userLiquidations[owner];
+    // still has outstanding debt
     if (!isLeftOver) {
-      // get token0 and token1's price
-      // and calculate their values
+      // get token0 and token1's price and calculate their values
       uint256 token0Price = IResilientOracle(resilientOracle).peek(token0);
       uint256 token1Price = IResilientOracle(resilientOracle).peek(token1);
       uint256 token0Value = FullMath.mulDiv(record.token0Left, token0Price, RESILIENT_ORACLE_DECIMALS);
       uint256 token1Value = FullMath.mulDiv(record.token1Left, token1Price, RESILIENT_ORACLE_DECIMALS);
-      // leftover tokens can't cover the amount to be paid
-      if ((token0Value + token1Value) < amount) {
-        // burn LP to get more token0 and token1
+      // Step 1. leftover tokens can't cover the amount to be paid and the user still has LPs to burn 
+      // @note in the edge case, even if all user LPs are liquidated, it might still not be enough to cover the auctioned LP_USD
+      if ((token0Value + token1Value) < amount && userLps[owner].length > 0) {
+        // Step 2. burn LP to get more token0 and token1
         (
           uint256 amount0,
           uint256 amount1,
@@ -394,8 +397,23 @@ IERC721Receiver
       // after LP burn, recalculate token0 and token1 values
       token0Value = FullMath.mulDiv(record.token0Left, token0Price, RESILIENT_ORACLE_DECIMALS);
       token1Value = FullMath.mulDiv(record.token1Left, token1Price, RESILIENT_ORACLE_DECIMALS);
-      // make sure enough tokens to cover the amount
-      require((token0Value + token1Value) >= amount, "PcsV3LpProvider: insufficient-lp-value");
+      /*
+        Only perform the value check when the user still has LP tokens remaining.
+        This is important for the following reasons:
+        1. Partial Liquidation: If the user is being partially liquidated (i.e., userLps[owner].length > 0 after burning),
+          we must ensure that the sum of token0Value and token1Value is enough to cover the required amount. This prevents
+          under-collateralization in normal cases and ensures the liquidator receives sufficient value for the debt repaid.
+        2. Full Liquidation (Bad Debt): If the user is being fully liquidated (i.e., all LPs are burned and userLps[owner].length == 0),
+          it is possible that the total value of all underlying assets is still insufficient to cover the outstanding debt (bad debt scenario).
+          In this case, we should not revert, but allow the liquidation to proceed so that the protocol can recognize and handle the bad debt.
+        3. Bad Debt in Auction/Clip Mechanism: liquidation repays debt (Clip.Sale.tab) by selling collateral (Clip.Sale.lot).
+          Even all of a user's LPs are liquidated and converted to token0/token1, but their total value is still insufficient to cover the lot (i.e., bad debt scenario),
+          this condition ensures the liquidation process does not revert or get stuck. The protocol can then recognize and handle the remaining bad debt,
+          allowing the auction/clearance process to complete and preventing the system from being locked in an unrecoverable state.
+      */
+      if (userLps[owner].length > 0) {
+        require((token0Value + token1Value) >= amount, "PcsV3LpProvider: insufficient-lp-value");
+      }
       // step 5. pay by tokens
       PcsV3LpLiquidationHelper.PaymentParams memory paymentParams = PcsV3LpLiquidationHelper.PaymentParams({
         recipient: recipient,
@@ -414,6 +432,7 @@ IERC721Receiver
       record.token1Left = newToken1Left;
     }
   
+    // -------- Post Liquidation
     // Do check whether liquidation is ended each time the bot bought some collateral
     PcsV3LpLiquidationHelper.PostLiquidationParams memory postLiquidationParams = PcsV3LpLiquidationHelper.PostLiquidationParams({
       cdp: cdp,

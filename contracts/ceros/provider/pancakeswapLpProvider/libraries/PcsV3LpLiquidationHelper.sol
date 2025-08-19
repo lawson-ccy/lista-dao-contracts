@@ -106,7 +106,7 @@ library PcsV3LpLiquidationHelper {
     address token1 = postLiquidationParams.token1;
     liquidationEnded = false;
     // Get user's remaining debt and collateral
-    (uint256 remainingDebt, uint256 remainingCollateral) = getUserRemainingDebt(cdp, collateral, user);
+    (uint256 remainingDebt, uint256 remainingCollateral) = getUserRemainingDebtAndCollaterals(cdp, collateral, user);
     // no collateral or debt is left, liquidation ended
     if (remainingDebt == 0 || remainingCollateral == 0) {
       // sweep the leftover lpUsd at cdp after liquidation
@@ -132,7 +132,7 @@ library PcsV3LpLiquidationHelper {
     * @param token Token address
     * @param user User address
     */
-  function getUserRemainingDebt(address cdp, address token, address user) internal view returns (uint256 remainingDebt, uint256 remainingCollateral) {
+  function getUserRemainingDebtAndCollaterals(address cdp, address token, address user) internal view returns (uint256 remainingDebt, uint256 remainingCollateral) {
     // get clipper of LpUsd
     (,,,address clipper) = ICdp(cdp).collaterals(token);
     // get all acitve auction ids from clipper
