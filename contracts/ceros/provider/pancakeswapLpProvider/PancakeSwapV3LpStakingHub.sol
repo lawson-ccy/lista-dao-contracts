@@ -275,13 +275,15 @@ IERC721Receiver
     uint256 rewardAmount
   ) {
 
-    // ------ Harvest rewards first (handling if token0/1 is reward token too) ------
-    uint256 preRewardBalance = IERC20(rewardToken).balanceOf(address(this));
-    // harvest reward
-    IMasterChefV3(masterChefV3).harvest(tokenId, address(this));
-    // calculate reward amount
-    rewardAmount = IERC20(rewardToken).balanceOf(address(this)) - preRewardBalance;
-
+    if(IMasterChefV3(masterChefV3).pendingCake(tokenId) > 0) {
+      // ------ Harvest rewards first (handling if token0/1 is reward token too) ------
+        uint256 preRewardBalance = IERC20(rewardToken).balanceOf(address(this));
+        // harvest reward
+        IMasterChefV3(masterChefV3).harvest(tokenId, address(this));
+        // calculate reward amount
+        rewardAmount = IERC20(rewardToken).balanceOf(address(this)) - preRewardBalance;
+    }
+    
     // ------ Collect then burn the LP -------
     uint256 preToken0Balance = IERC20(token0).balanceOf(address(this));
     uint256 preToken1Balance = IERC20(token1).balanceOf(address(this));

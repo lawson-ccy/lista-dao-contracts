@@ -23,6 +23,7 @@ library PcsV3LpLiquidationHelper {
     address token1;
     uint256 token0Left;
     uint256 token1Left;
+    bool isLeftOver;
   }
 
   struct PaymentParams {
@@ -104,13 +105,12 @@ library PcsV3LpLiquidationHelper {
     address user = postLiquidationParams.user;
     address token0 = postLiquidationParams.token0;
     address token1 = postLiquidationParams.token1;
+    bool isLeftOver = postLiquidationParams.isLeftOver;
     liquidationEnded = false;
     // Get user's remaining debt and collateral
     (uint256 remainingDebt, uint256 remainingCollateral) = getUserRemainingDebtAndCollaterals(cdp, collateral, user);
     // no collateral or debt is left, liquidation ended
-    if (remainingDebt == 0 || remainingCollateral == 0) {
-      // sweep the leftover lpUsd at cdp after liquidation
-      sweepLeftoverLpUsd(user, collateral, cdp);
+    if (remainingDebt == 0 || remainingCollateral == 0 || isLeftOver) {
       // send leftover token0 and token1 to user
       uint256 token0Left = postLiquidationParams.token0Left;
       uint256 token1Left = postLiquidationParams.token1Left;
@@ -146,23 +146,6 @@ library PcsV3LpLiquidationHelper {
         remainingCollateral = sale.lot;
         break;
       }
-    }
-  }
-
-  /**
-    * @dev sweep leftover LpUsd after liquidation
-    * @param user user address
-    * @param lpUsd LpUsd token address
-    * @param cdp cdp address
-    */
-  function sweepLeftoverLpUsd(address user, address lpUsd, address cdp) internal {
-    // fetch the remaining value of LpUsd after liquidation
-    uint256 remaining = ICdp(cdp).free(lpUsd, user);
-    // has leftover LpUsd
-    if (remaining > 0) {
-      // withdraw the remaining and burn
-      ICdp(cdp).withdraw(user, lpUsd, remaining);
-      ILpUsd(lpUsd).burn(address(this), remaining);
     }
   }
 }

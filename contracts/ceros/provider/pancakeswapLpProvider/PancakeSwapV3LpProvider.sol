@@ -364,7 +364,7 @@ IERC721Receiver
     require(owner != address(0), "PcsV3LpProvider: invalid-owner");
     require(recipient != address(0), "PcsV3LpProvider: invalid-recipient");
     require(amount > 0, "PcsV3LpProvider: invalid-amount");
-    require(userLiquidations[owner].ongoing, "PcsV3LpProvider: no-ongoing-liquidation");
+    require(userLiquidations[owner].ongoing || isLeftOver, "PcsV3LpProvider: no-ongoing-liquidation");
     // burn lpUsd
     ILpUsd(lpUsd).burn(address(this), amount);
     // get user token0 and token1 leftover from previous liquidation(if any)
@@ -441,7 +441,8 @@ IERC721Receiver
       token0: token0,
       token1: token1,
       token0Left: record.token0Left,
-      token1Left: record.token1Left
+      token1Left: record.token1Left,
+      isLeftOver: isLeftOver
     });
     bool liquidationEnded = PcsV3LpLiquidationHelper.postLiquidation(postLiquidationParams);
     // liquidation ended, send leftover tokens and LP to the owner
